@@ -33,8 +33,6 @@ services:
     build:
       context: ./
     environment: *common-variables
-    volumes:
-      - static-volume:/var/static
     command: bash -c "python3 /app/manage.py migrate;"
 
 
@@ -67,4 +65,3 @@ services:
 
 volumes:
   postgresdata:
-  static-volume:
