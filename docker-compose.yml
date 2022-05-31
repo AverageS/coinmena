@@ -35,7 +35,7 @@ services:
     environment: *common-variables
     volumes:
       - static-volume:/var/static
-    command: bash -c "python3 /app/manage.py migrate; python3 /app/manage.py collectstatic --noinput; chmod 777 -R /var/static"
+    command: bash -c "python3 /app/manage.py migrate;"
 
 
   redis:
