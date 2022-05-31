@@ -1,0 +1,70 @@
+version: '3.5'
+
+x-common-variables: &common-variables
+  SECRET_KEY: $SECRET_KEY
+  DB_PASSWORD: $DB_PASSWORD
+  DB_URL: $DB_URL
+  CELERY_URL: 'redis://redis:6379/0'
+  ALPHAVANTAGE_API_KEY: $ALPHAVANTAGE_API_KEY
+
+services:
+
+  postgres:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: $DB_PASSWORD
+      POSTGRES_USER: 'user'
+      POSTGRES_DB: 'coinmena'
+    volumes:
+      - postgresdata:/var/lib/postgresql/data
+
+  backend:
+    tty: true
+    build:
+      context: ./
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    environment: *common-variables
+    command: gunicorn coinmena.wsgi -b 0.0.0.0:8000
+
+  migrations:
+    build:
+      context: ./
+    environment: *common-variables
+    volumes:
+      - static-volume:/var/static
+    command: bash -c "python3 /app/manage.py migrate; python3 /app/manage.py collectstatic --noinput; chmod 777 -R /var/static"
+
+
+  redis:
+    image: redis
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  worker: &worker-base
+    build:
+      context: ./
+    command: celery -A coinmena worker --loglevel=info  -c 1
+    environment: *common-variables
+    depends_on:
+      - redis
+      - beat
+      - backend
+    restart: unless-stopped
+
+  beat:
+    <<: *worker-base
+    depends_on:
+      - redis
+      - backend
+    command: celery -A coinmena beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    restart: unless-stopped
+
+
+volumes:
+  postgresdata:
+  static-volume:
